@@ -7,6 +7,11 @@ import { fileURLToPath } from 'url';
 
 import indexRouter from './routes/index.js';
 import usersRouter from './routes/users.js';
+import session from 'express-session';
+import dotenv from 'dotenv';
+import mysqlSession from 'express-mysql-session';
+
+dotenv.config({ path: '../.env' });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -22,6 +27,32 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+// Configure MySQL session store
+// express-mysql-session needs session passed to it (factory pattern)
+const MySQLStore = mysqlSession(session);
+
+const sessionStore = new MySQLStore({
+  host: process.env.DB_HOST || 'db',
+  port: 3306,
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+});
+
+// Configure session middleware
+app.use(session({
+  name: "notes.sid",
+  secret: process.env.SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  store: sessionStore,
+  cookie: {
+    httpOnly: true,
+    secure: false,   // Set to true only with HTTPS
+    maxAge: 1000 * 60 * 60 * 24 // 1 day
+  }
+}));
 
 app.use('/', indexRouter);
 app.use('/users', usersRouter);

@@ -35,19 +35,33 @@ router.post('/login', async function(req, res, next) {
     
     const user = rows[0];
     
-    // Login successful - for now, just redirect to home
-    // TODO: Set up session/cookie authentication
-    res.redirect('/');
+    // Login successful - set session data
+    // Store user information in the session
+    req.session.user = {
+      id: user.id,
+      email: user.email
+    };
+    
+    // Session is automatically saved to MySQL database by express-session
+    // Redirect to notes page after successful login
+    res.redirect('/notes');
     
   } catch (error) {
     next(error);
   }
 });
 
+
+router.get('/notes', function(req, res, next) {
+  res.render('notes')
+})
+
+
 /* GET register page. */
 router.get('/register', function(req, res, next) {
   res.render('register');
 });
+
 
 router.get('/health/db', async (req, res, next) => {
   try {
@@ -56,6 +70,41 @@ router.get('/health/db', async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+})
+
+router.get('/api/notes', async (req, res, next) => {
+ // Check if user is logged in
+ if (req.session.user) {
+  // User is logged in - access user info
+  const userId = req.session.user.id;
+  const userEmail = req.session.user.email;
+  res.render('notes', { user: req.session.user });
+} else {
+  // User not logged in - redirect to login
+  res.redirect('/login');
+}
+})
+
+router.post('/api/notes', async (req, res, next) => {
+
+})
+
+router.get('/api/notes/:noteId', async (req, res, next) => {
+  
+})
+
+router.delete('/api/notes/:noteId', async (req, res, next) => {
+  
+})
+
+
+router.post('/api/logout', async (req, res, next) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return next(err);
+    }
+    res.redirect('/login');
+  });
 })
 
 export default router;
