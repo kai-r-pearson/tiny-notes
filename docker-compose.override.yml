@@ -1,0 +1,9 @@
+services:
+  app:
+    volumes:
+      # Mount your local app directory into the container
+      - ./app:/app
+      # Exclude node_modules (use container's node_modules)
+      - /app/node_modules
+    # For development, you might want to override the command
+    # command: npm run dev

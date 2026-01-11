@@ -11,6 +11,10 @@ router.get('/', function(req, res, next) {
 router.get('/login', function(req, res, next) {
   res.render('login');
 });
+/* GET register page. */
+router.get('/register', function(req, res, next) {
+  res.render('register');
+});
 
 router.get('/health/db', async (req, res, next) => {
   try {
