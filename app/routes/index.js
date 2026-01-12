@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import pool from '../db.js';
+import requireAuth from '../middleware/requireAuth.js';
+
 var router = Router();
 
 /* GET home page. */
@@ -37,10 +39,7 @@ router.post('/login', async function(req, res, next) {
     
     // Login successful - set session data
     // Store user information in the session
-    req.session.user = {
-      id: user.id,
-      email: user.email
-    };
+    req.session.userId = user.id;
     
     // Session is automatically saved to MySQL database by express-session
     // Redirect to notes page after successful login
@@ -52,15 +51,9 @@ router.post('/login', async function(req, res, next) {
 });
 
 
-router.get('/notes', function(req, res, next) {
+router.get('/notes', requireAuth, function(req, res, next) {
   res.render('notes')
 })
-
-
-/* GET register page. */
-router.get('/register', function(req, res, next) {
-  res.render('register');
-});
 
 
 router.get('/health/db', async (req, res, next) => {
@@ -72,20 +65,13 @@ router.get('/health/db', async (req, res, next) => {
   }
 })
 
-router.get('/api/notes', async (req, res, next) => {
- // Check if user is logged in
- if (req.session.user) {
-  // User is logged in - access user info
-  const userId = req.session.user.id;
-  const userEmail = req.session.user.email;
-  res.render('notes', { user: req.session.user });
-} else {
-  // User not logged in - redirect to login
-  res.redirect('/login');
-}
+router.get('/api/notes', requireAuth, async (req, res, next) => {
+  const [rows] = await pool.query(
+    'SELECT * FROM notes WHERE user_id = ?', req.session.userId
+  )
 })
 
-router.post('/api/notes', async (req, res, next) => {
+router.post('/api/notes', requireAuth, async (req, res, next) => {
 
 })
 
@@ -100,9 +86,7 @@ router.delete('/api/notes/:noteId', async (req, res, next) => {
 
 router.post('/api/logout', async (req, res, next) => {
   req.session.destroy((err) => {
-    if (err) {
-      return next(err);
-    }
+    res.clearCookie("notes.sid");
     res.redirect('/login');
   });
 })
