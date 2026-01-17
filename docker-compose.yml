@@ -18,6 +18,11 @@ services:
 
   db:
     image: mysql:8
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+    restart: unless-stopped
     env_file:
       - .env
     environment:

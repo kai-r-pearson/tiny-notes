@@ -4,16 +4,6 @@ import requireAuth from '../middleware/requireAuth.js';
 
 var router = Router();
 
-/* GET home page. */
-router.get('/', function(req, res, next) {
-  res.render('index', { dbHealth: "connected" });
-});
-
-/* GET login page. */
-router.get('/login', function(req, res, next) {
-  res.render('login');
-});
-
 /* POST login - handle login form submission */
 router.post('/login', async function(req, res, next) {
   try {
@@ -46,45 +36,15 @@ router.post('/login', async function(req, res, next) {
     res.redirect('/notes');
     
   } catch (error) {
+    console.error('=== Error Details ===');
+    console.error('Message:', error.message);
+    console.error('Stack:', error.stack);
+    console.error('Full error:', error);
     next(error);
   }
 });
 
-
-router.get('/notes', requireAuth, function(req, res, next) {
-  res.render('notes')
-})
-
-
-router.get('/health/db', async (req, res, next) => {
-  try {
-    const [rows] = await pool.query('SELECT 1');
-    res.json({ ok: true, db: "connected" })
-  } catch (error) {
-    next(error);
-  }
-})
-
-router.get('/api/notes', requireAuth, async (req, res, next) => {
-  const [rows] = await pool.query(
-    'SELECT * FROM notes WHERE user_id = ?', req.session.userId
-  )
-})
-
-router.post('/api/notes', requireAuth, async (req, res, next) => {
-
-})
-
-router.get('/api/notes/:noteId', async (req, res, next) => {
-  
-})
-
-router.delete('/api/notes/:noteId', async (req, res, next) => {
-  
-})
-
-
-router.post('/api/logout', async (req, res, next) => {
+router.post('/logout', async (req, res, next) => {
   req.session.destroy((err) => {
     res.clearCookie("notes.sid");
     res.redirect('/login');

@@ -5,8 +5,11 @@ import cookieParser from 'cookie-parser';
 import logger from 'morgan';
 import { fileURLToPath } from 'url';
 
-import indexRouter from './routes/index.js';
+import apiRouter from './routes/api.js';
 import usersRouter from './routes/users.js';
+import pageRouter from './routes/pages.js';
+import authRouter from './routes/auth.js';
+
 import session from 'express-session';
 import dotenv from 'dotenv';
 import mysqlSession from 'express-mysql-session';
@@ -33,51 +36,73 @@ app.use(express.static(path.join(__dirname, 'public')));
 // express-mysql-session needs session passed to it (factory pattern)
 const MySQLStore = mysqlSession(session, pool);
 
-const sessionStore = new MySQLStore({
-  host: process.env.DB_HOST || 'db',
-  port: 3306,
-  user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD,
-  database: process.env.DB_NAME,
-});
-
-// Configure session middleware
-app.use(session({
-  name: "notes.sid",
-  secret: process.env.SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  store: sessionStore,
-  cookie: {
-    httpOnly: true,
-    secure: false,   // Set to true only with HTTPS
-    maxAge: 1000 * 60 * 60 * 24 // 1 day
-  }}
-));
-
-// Optionally use onReady() to get a promise that resolves when store is ready.
-sessionStore.onReady().then(() => {
-	// MySQL session store ready for use.
-	console.log('MySQLStore ready');
-}).catch(error => {
-	// Something went wrong.
-	console.error(error);
-});
+async function initializeMySQLStore(retries = 10, delay = 3000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const sessionStore = new MySQLStore({
+        host: process.env.DB_HOST,
+        port: 3306,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_NAME
+      });
+      
+      // Test the connection
+      await sessionStore.query('SELECT 1');
+      console.log('MySQL session store connected successfully');
+      return sessionStore;
+    } catch (err) {
+      console.log(`MySQL connection attempt ${i + 1}/${retries} failed:`, err.message);
+      if (i < retries - 1) {
+        console.log(`Retrying in ${delay/1000} seconds...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  throw new Error('Failed to connect to MySQL after multiple retries');
+}
 
 
-app.use('/', indexRouter);
-app.use('/users', usersRouter);
+initializeMySQLStore()
+  .then(sessionStore => {
+    // Configure session middleware
+    app.use(session({
+      name: "notes.sid",
+      secret: process.env.SESSION_SECRET,
+      resave: false,
+      saveUninitialized: false,
+      store: sessionStore,
+      cookie: {
+        httpOnly: true,
+        secure: false,   // Set to true only with HTTPS
+        maxAge: 1000 * 60 * 60 * 24 // 1 day
+      }}
+    ));
+    
+    app.use('/', pageRouter);
+    app.use('/', authRouter);
+    app.use('/users', usersRouter);
+    app.use('/api', apiRouter);
 
-app.use((req, res, next) => {
-  next(createError(404));
-});
+    app.use((req, res, next) => {
+      next(createError(404));
+    });
 
-app.use((err, req, res, next) => {
-  res.locals.message = err.message;
-  res.locals.error = req.app.get('env') === 'development' ? err : {};
+    app.use((err, req, res, next) => {
+      res.locals.message = err.message;
+      res.locals.error = req.app.get('env') === 'development' ? err : {};
 
-  res.status(err.status || 500);
-  res.render('error');
-});
+      res.status(err.status || 500);
+      res.render('error');
+    });
+  })
+  
+  .catch(err => {
+    console.error('Fatal error:', err);
+    process.exit(1);
+  });
+
+
+
 
 export default app;
